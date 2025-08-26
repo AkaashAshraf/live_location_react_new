@@ -1,137 +1,191 @@
 import { useState, useRef, useEffect } from "react";
 import { GoogleMap, Marker, InfoWindow, useJsApiLoader } from "@react-google-maps/api";
+import { io } from "socket.io-client";
 import styles from "../css/LiveDrivers.module.css";
+import { BASE_URL, SOCKET_URL, GOOGLE_MAPS_API_KEY, DEFAULT_DRIVER_IMAGE } from "../config";
 
-const users = [
-  {
-    id: 1,
-    name: "Ali Khan",
-    lat: 33.6844,
-    lng: 73.0479,
-    status: "online",
-    lastUpdated: "2025-08-26 10:20 AM",
-    img: "https://i.pravatar.cc/40?img=1",
-  },
-  {
-    id: 2,
-    name: "Sara Ahmed",
-    lat: 33.6890,
-    lng: 73.0550,
-    status: "offline",
-    lastUpdated: "2025-08-26 09:45 AM",
-    img: "https://i.pravatar.cc/40?img=2",
-  },
-  {
-    id: 3,
-    name: "Usman Malik",
-    lat: 33.6900,
-    lng: 73.0500,
-    status: "online",
-    lastUpdated: "2025-08-26 10:05 AM",
-    img: "https://i.pravatar.cc/40?img=3",
-  },
-];
+// Connect to Socket.io server
+const socket = io(SOCKET_URL);
 
 const containerStyle = { width: "100%", height: "100%" };
-const defaultCenter = { lat: 33.6844, lng: 73.0479 };
 
 export default function LiveDrivers() {
   const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: "AIzaSyDcu3TPs4TtGv4gt7us_Zax9p9DW8JfqyA",
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
   });
 
+  const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [autoCenterEnabled, setAutoCenterEnabled] = useState(true);
   const mapRef = useRef<any>(null);
 
+  useEffect(() => {
+    // Fetch initial users
+    fetch(`${BASE_URL}/trips/get-users`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.users) {
+          setUsers(data.users);
+          const lastUpdated = data.users.reduce((a, b) =>
+            new Date(a.updatedAt) > new Date(b.updatedAt) ? a : b
+          );
+          if (mapRef.current && lastUpdated && autoCenterEnabled) {
+            mapRef.current.panTo({ lat: lastUpdated.lat, lng: lastUpdated.lng });
+          }
+        }
+      })
+      .catch((err) => console.error(err));
+
+    // Listen for updates from server
+    socket.on("driverUpdated", (driver) => {
+      setUsers((prev) => {
+        const exists = prev.find((u) => u.driver_id === driver.driver_id);
+        if (exists) {
+          return prev.map((u) => (u.driver_id === driver.driver_id ? driver : u));
+        } else {
+          return [...prev, driver];
+        }
+      });
+
+      if (mapRef.current && autoCenterEnabled && !selectedUser) {
+        mapRef.current.panTo({ lat: driver.lat, lng: driver.lng });
+      }
+    });
+
+    return () => socket.off("driverUpdated");
+  }, [autoCenterEnabled, selectedUser]);
+
   const filteredUsers = users.filter((user) =>
-    user.name.toLowerCase().includes(search.toLowerCase())
+    user.driver_id.toLowerCase().includes(search.toLowerCase())
   );
 
   useEffect(() => {
     if (filteredUsers.length > 0 && mapRef.current) {
+      setAutoCenterEnabled(true);
       mapRef.current.panTo({
         lat: filteredUsers[0].lat,
         lng: filteredUsers[0].lng,
       });
       mapRef.current.setZoom(15);
     }
-  }, [search]);
+  }, [search, filteredUsers]);
 
-  if (!isLoaded) return <p>Loading Map...</p>;
+  const handleMapClick = () => setAutoCenterEnabled(false);
+  const handleMarkerClick = (user: any) => {
+    setAutoCenterEnabled(false);
+    setSelectedUser(user);
+  };
+  const handleInfoWindowClose = () => setSelectedUser(null);
 
-  // Marker icon generator using direct image URL + colored border
-  const getMarkerIcon = (user: typeof users[0]) => {
+  // Marker with image URL
+  const getMarkerIcon = (user: any) => {
     const borderColor = user.status === "online" ? "#10b981" : "#ef4444";
+
+    // Use SVG marker with circular border
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+        <circle cx="25" cy="25" r="24" fill="${borderColor}" />
+        <clipPath id="clip">
+          <circle cx="25" cy="25" r="20" />
+        </clipPath>
+        <image x="5" y="5" width="40" height="40" href="${user.image || DEFAULT_DRIVER_IMAGE}" clip-path="url(#clip)" />
+      </svg>
+    `;
+
     return {
-      url: user.img, // direct image URL
-      scaledSize: new google.maps.Size(40, 40),
+      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+      scaledSize: new google.maps.Size(50, 50),
       origin: new google.maps.Point(0, 0),
-      anchor: new google.maps.Point(20, 20),
-      labelOrigin: new google.maps.Point(20, 50),
+      anchor: new google.maps.Point(25, 25),
     };
   };
 
+  if (!isLoaded) return <p>Loading Map...</p>;
+
   return (
     <div className={styles.container}>
-      <h2 className={styles.header}>🚖 Live Drivers</h2>
+      {/* Header */}
+      <div className={styles.headerWrapper}>
+        <button className={styles.backButton} onClick={() => window.history.back()}>
+          ← Back
+        </button>
+        <h2 className={styles.header}> Live Drivers View</h2>
+      </div>
 
-      {/* Search Field */}
+      {/* Search */}
       <div className={styles.searchWrapper}>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1110.5 3a7.5 7.5 0 016.15 13.65z"
+        <div className={styles.searchInputWrapper}>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            className={styles.searchIcon}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1110.5 3a7.5 7.5 0 016.15 13.65z"
+            />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search driver by name ..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={styles.searchInput}
           />
-        </svg>
-        <input
-          type="text"
-          placeholder="Search driver..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className={styles.searchInput}
-        />
+        </div>
+
+        <button
+          className={styles.autoCenterButton}
+          onClick={() => setAutoCenterEnabled(!autoCenterEnabled)}
+          title={autoCenterEnabled ? "Auto-center enabled" : "Auto-center disabled"}
+        >
+          {autoCenterEnabled ? "📍 Re-center" : "❌ Manual"}
+        </button>
       </div>
 
       {/* Map */}
       <div className={styles.mapContainer}>
         <GoogleMap
           mapContainerStyle={containerStyle}
-          center={defaultCenter}
+          center={{ lat: 33.6844, lng: 73.0479 }}
           zoom={14}
           onLoad={(map) => (mapRef.current = map)}
+          onClick={handleMapClick}
         >
           {filteredUsers.map((user) => (
             <Marker
-              key={user.id}
+              key={user.driver_id}
               position={{ lat: user.lat, lng: user.lng }}
               icon={getMarkerIcon(user)}
-              onClick={() => setSelectedUser(user)}
-              label={{
-                text: "●", // small dot for border color
-                color: user.status === "online" ? "#10b981" : "#ef4444",
-                fontSize: "20px",
-                fontWeight: "bold",
-              }}
+              onClick={() => handleMarkerClick(user)}
             />
           ))}
 
           {selectedUser && (
             <InfoWindow
               position={{ lat: selectedUser.lat, lng: selectedUser.lng }}
-              onCloseClick={() => setSelectedUser(null)}
+              onCloseClick={handleInfoWindowClose}
             >
               <div style={{ minWidth: "180px" }}>
-                <h3 style={{ fontWeight: 600 }}>{selectedUser.name}</h3>
+                <h3 style={{ fontWeight: 600 }}>{selectedUser.driver_id}</h3>
                 <p style={{ fontSize: "0.875rem" }}>Status: {selectedUser.status}</p>
-                <p style={{ fontSize: "0.875rem" }}>Last Updated: {selectedUser.lastUpdated}</p>
+                <p style={{ fontSize: "0.875rem" }}>
+                  Last Updated: {new Date(selectedUser.updatedAt).toLocaleString()}
+                </p>
+                <button
+                  onClick={() => {
+                    setAutoCenterEnabled(true);
+                    mapRef.current.panTo({ lat: selectedUser.lat, lng: selectedUser.lng });
+                  }}
+                  style={{ marginTop: "8px", padding: "4px 8px" }}
+                >
+                  Center on this driver
+                </button>
               </div>
             </InfoWindow>
           )}

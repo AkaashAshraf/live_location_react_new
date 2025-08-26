@@ -1,0 +1,125 @@
+/* Container & Page Layout */
+.container {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  height: 100vh;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
+  background-color: #f3f4f6;
+}
+
+/* Header */
+.header {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Driver & Date Selection */
+.selectionWrapper {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.selectInput {
+  padding: 10px 14px;
+  font-size: 1rem;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  outline: none;
+  min-width: 180px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.selectInput:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+/* Button Styles */
+.fetchButton {
+  padding: 10px 20px;
+  background-color: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.fetchButton:hover {
+  background-color: #2563eb;
+  transform: translateY(-2px);
+}
+
+.fetchButton:active {
+  transform: translateY(0px);
+}
+
+/* Map Container */
+.mapContainer {
+  flex: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+/* InfoWindow Content */
+.infoWindow {
+  min-width: 200px;
+  font-size: 0.9rem;
+  color: #111827;
+}
+
+.infoWindow h3 {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.infoWindow p {
+  margin: 2px 0;
+}
+
+/* Polyline Hover (Optional for better UX) */
+.polyline-hover {
+  cursor: pointer;
+}
+.autoCenterButton {
+  margin-left: 10px;
+  padding: 8px 12px;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.autoCenterButton:hover {
+  background-color: #e2e8f0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .selectionWrapper {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .selectInput {
+    min-width: 100%;
+  }
+
+  .fetchButton {
+    width: 100%;
+  }
+}

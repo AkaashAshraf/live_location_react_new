@@ -5,7 +5,7 @@ import { Car, Route } from "lucide-react";
 export default function HomeScreen() {
   const cards = [
     {
-      title: "Live Drivers",
+      title: "View Live Drivers",
       desc: "Track drivers in real-time on the map.",
       icon: <Car />,
       color: "#4f46e5", // Indigo
@@ -13,7 +13,7 @@ export default function HomeScreen() {
     },
     {
       title: "Driver Trips",
-      desc: "View trip history and performance.",
+      desc: "View trip history",
       icon: <Route />,
       color: "#10b981", // Green
       link: "/driver-trip",
@@ -24,9 +24,9 @@ export default function HomeScreen() {
     <div className={styles.container}>
       {/* Header */}
       <header className={styles.header}>
-        <h1>🚖 Driver Dashboard</h1>
+        <h1>Driver Dashboard</h1>
         <p className={styles.subheading}>
-          Welcome back! Monitor your drivers and trips seamlessly.
+          Welcome To Live User Dashboard
         </p>
       </header>
 
