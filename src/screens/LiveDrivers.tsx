@@ -15,6 +15,8 @@ export default function LiveDrivers() {
   });
 
   const [users, setUsers] = useState<any[]>([]);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>("All");
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [autoCenterEnabled, setAutoCenterEnabled] = useState(true);
@@ -27,7 +29,13 @@ export default function LiveDrivers() {
       .then((data) => {
         if (data.success && data.users) {
           setUsers(data.users);
-          const lastUpdated = data.users.reduce((a, b) =>
+
+          // Extract unique branches
+          const branchSet = new Set(data.users.map((u: any) => u.branch_name).filter(Boolean));
+          setBranches(["All", ...Array.from(branchSet)]);
+
+          // Center on last updated user
+          const lastUpdated = data.users.reduce((a: any, b: any) =>
             new Date(a.updatedAt) > new Date(b.updatedAt) ? a : b
           );
           if (mapRef.current && lastUpdated && autoCenterEnabled) {
@@ -56,9 +64,12 @@ export default function LiveDrivers() {
     return () => socket.off("driverUpdated");
   }, [autoCenterEnabled, selectedUser]);
 
-  const filteredUsers = users.filter((user) =>
-    user.driver_id.toLowerCase().includes(search.toLowerCase())
-  );
+  // Filter by branch + search
+  const filteredUsers = users.filter((user) => {
+    const branchMatch = selectedBranch === "All" || user.branch_name === selectedBranch;
+    const searchMatch = user.driver_id.toLowerCase().includes(search.toLowerCase());
+    return branchMatch && searchMatch;
+  });
 
   useEffect(() => {
     if (filteredUsers.length > 0 && mapRef.current) {
@@ -69,7 +80,7 @@ export default function LiveDrivers() {
       });
       mapRef.current.setZoom(15);
     }
-  }, [search, filteredUsers]);
+  }, [search, selectedBranch, filteredUsers]);
 
   const handleMapClick = () => setAutoCenterEnabled(false);
   const handleMarkerClick = (user: any) => {
@@ -82,14 +93,15 @@ export default function LiveDrivers() {
   const getMarkerIcon = (user: any) => {
     const borderColor = user.status === "online" ? "#10b981" : "#ef4444";
 
-    // Use SVG marker with circular border
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
         <circle cx="25" cy="25" r="24" fill="${borderColor}" />
         <clipPath id="clip">
           <circle cx="25" cy="25" r="20" />
         </clipPath>
-        <image x="5" y="5" width="40" height="40" href="${user.image || DEFAULT_DRIVER_IMAGE}" clip-path="url(#clip)" />
+        <image x="5" y="5" width="40" height="40" href="${
+          user.image || DEFAULT_DRIVER_IMAGE
+        }" clip-path="url(#clip)" />
       </svg>
     `;
 
@@ -113,8 +125,22 @@ export default function LiveDrivers() {
         <h2 className={styles.header}> Live Drivers View</h2>
       </div>
 
-      {/* Search */}
+      {/* Filters */}
       <div className={styles.searchWrapper}>
+        {/* Branch Dropdown */}
+        <select
+          value={selectedBranch}
+          onChange={(e) => setSelectedBranch(e.target.value)}
+          className={styles.branchSelect}
+        >
+          {branches.map((branch) => (
+            <option key={branch} value={branch}>
+              {branch}
+            </option>
+          ))}
+        </select>
+
+        {/* Search Input */}
         <div className={styles.searchInputWrapper}>
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -132,13 +158,14 @@ export default function LiveDrivers() {
           </svg>
           <input
             type="text"
-            placeholder="Search driver by name ..."
+            placeholder="Search driver by Name or ID ..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={styles.searchInput}
           />
         </div>
 
+        {/* Auto-center toggle */}
         <button
           className={styles.autoCenterButton}
           onClick={() => setAutoCenterEnabled(!autoCenterEnabled)}
@@ -174,6 +201,9 @@ export default function LiveDrivers() {
               <div style={{ minWidth: "180px" }}>
                 <h3 style={{ fontWeight: 600 }}>{selectedUser.driver_id}</h3>
                 <p style={{ fontSize: "0.875rem" }}>Status: {selectedUser.status}</p>
+                <p style={{ fontSize: "0.875rem" }}>
+                  Branch: {selectedUser.branch_name || "N/A"}
+                </p>
                 <p style={{ fontSize: "0.875rem" }}>
                   Last Updated: {new Date(selectedUser.updatedAt).toLocaleString()}
                 </p>
