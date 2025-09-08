@@ -15,16 +15,13 @@ export default function DriverTrips() {
   const [date, setDate] = useState<string>("");
   const [trips, setTrips] = useState<any[]>([]);
   const [selectedTrip, setSelectedTrip] = useState<any>(null);
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [center, setCenter] = useState<{ lat: number; lng: number }>({ lat: 33.6844, lng: 73.0479 });
 
   // Fetch drivers on mount
   useEffect(() => {
     fetch(`${BASE_URL}/trips/get-users`)
       .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.users) setDrivers(data.users);
-      })
+      .then((data) => { if (data.success && data.users) setDrivers(data.users); })
       .catch(console.error);
 
     // Get user location
@@ -83,9 +80,7 @@ export default function DriverTrips() {
         >
           <option value="">Select Driver</option>
           {drivers.map((d) => (
-            <option key={d.driver_id} value={d.driver_id}>
-              {d.driver_id}
-            </option>
+            <option key={d.driver_id} value={d.driver_id}>{d.driver_id}</option>
           ))}
         </select>
 
@@ -110,76 +105,42 @@ export default function DriverTrips() {
           onLoad={(map) => (mapRef.current = map)}
         >
           {/* Trip lines */}
-          {trips
-            .filter((t) => t.locations.length > 1)
-            .map((trip, idx) => {
-              const path = trip.locations.map((loc) => ({ lat: loc.lat, lng: loc.long }));
-              const color = tripColors[idx % tripColors.length];
-              return (
-                <Polyline
-                  key={trip._id}
-                  path={path}
-                  options={{ strokeColor: color, strokeOpacity: 0.8, strokeWeight: 6 }}
-                  onClick={() => setSelectedTrip(trip)}
-                />
-              );
-            })}
+          {trips.filter(t => t.locations.length > 1).map((trip, idx) => {
+            const path = trip.locations.map(loc => ({ lat: loc.lat, lng: loc.long }));
+            const color = tripColors[idx % tripColors.length];
+            return (
+              <Polyline
+                key={trip._id}
+                path={path}
+                options={{ strokeColor: color, strokeOpacity: 0.8, strokeWeight: 6 }}
+                onClick={() => setSelectedTrip(trip)}
+              />
+            );
+          })}
 
           {/* Start & End markers */}
-          {trips
-            .filter((t) => t.locations.length > 1)
-            .flatMap((trip) => {
-              const start = trip.locations[0];
-              const end = trip.locations[trip.locations.length - 1];
-              return [
-                <Marker
-                  key={`${trip._id}-start`}
-                  position={{ lat: start.lat, lng: start.long }}
-                  label="S"
-                  icon={{ url: "http://maps.google.com/mapfiles/ms/icons/green-dot.png" }}
-                  onClick={() => setSelectedTrip(trip)}
-                />,
-                <Marker
-                  key={`${trip._id}-end`}
-                  position={{ lat: end.lat, lng: end.long }}
-                  label="E"
-                  icon={{ url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png" }}
-                  onClick={() => setSelectedTrip(trip)}
-                />,
-              ];
-            })}
+          {trips.filter(t => t.locations.length > 1).flatMap(trip => {
+            const start = trip.locations[0];
+            const end = trip.locations[trip.locations.length - 1];
+            return [
+              <Marker
+                key={`${trip._id}-start`}
+                position={{ lat: start.lat, lng: start.long }}
+                label="S"
+                icon={{ url: "http://maps.google.com/mapfiles/ms/icons/green-dot.png" }}
+                onClick={() => setSelectedTrip(trip)}
+              />,
+              <Marker
+                key={`${trip._id}-end`}
+                position={{ lat: end.lat, lng: end.long }}
+                label="E"
+                icon={{ url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png" }}
+                onClick={() => setSelectedTrip(trip)}
+              />,
+            ];
+          })}
 
-          {/* Order markers as colored circles */}
-          {trips.flatMap((trip) =>
-            trip.locations
-              .filter((loc: any) => loc.order_no && loc.type)
-              .map((loc: any, idx: number) => {
-                let fillColor = "#0000FF"; // default blue
-                if (loc.type === "delivered") {
-                  fillColor = "#00FF00"; // green
-                } else if (loc.type === "undelivered") {
-                  fillColor = "#FF0000"; // red
-                }
-
-                return (
-                  <Marker
-                    key={`${trip._id}-order-${idx}`}
-                    position={{ lat: loc.lat, lng: loc.long }}
-                    icon={{
-                      path: window.google.maps.SymbolPath.CIRCLE,
-                      fillColor: fillColor,
-                      fillOpacity: 1,
-                      strokeWeight: 1,
-                      strokeColor: "#333",
-                      scale: 10, // size of circle
-                    }}
-                    onClick={() => setSelectedOrder({ ...loc, driver_id: trip.driver_id })}
-                  />
-                );
-              })
-          )}
-
-          {/* Trip InfoWindow */}
+          {/* InfoWindow */}
           {selectedTrip && selectedTrip.locations.length > 0 && (
             <InfoWindow
               position={{
@@ -193,29 +154,7 @@ export default function DriverTrips() {
                 <p>Status: {selectedTrip.status}</p>
                 <p>Start At: {new Date(selectedTrip.locations[0].created_at).toLocaleString()}</p>
                 {selectedTrip.status === "closed" && (
-                  <p>
-                    Closed At:{" "}
-                    {new Date(
-                      selectedTrip.locations[selectedTrip.locations.length - 1].created_at
-                    ).toLocaleString()}
-                  </p>
-                )}
-              </div>
-            </InfoWindow>
-          )}
-
-          {/* Order InfoWindow */}
-          {selectedOrder && (
-            <InfoWindow
-              position={{ lat: selectedOrder.lat, lng: selectedOrder.long }}
-              onCloseClick={() => setSelectedOrder(null)}
-            >
-              <div className={styles.infoWindow}>
-                <h3>Order: {selectedOrder.order_no}</h3>
-                <p>Status: {selectedOrder.type}</p>
-                <p>Driver: {selectedOrder.driver_id}</p>
-                {selectedOrder.created_at && (
-                  <p>Updated At: {new Date(selectedOrder.created_at).toLocaleString()}</p>
+                  <p>Closed At: {new Date(selectedTrip.locations[selectedTrip.locations.length - 1].created_at).toLocaleString()}</p>
                 )}
               </div>
             </InfoWindow>
